@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GenAI E-commerce Q&A Agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      background-color: #1a237e;
+      font-family: 'Noto Serif', serif;
+      color: white;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      flex-wrap: wrap;
+    }
+
+    .circle-overlay {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      background-color: #ff5722;
+      border-bottom-left-radius: 100px;
+      border-top-left-radius: 100px;
+      border-top-right-radius: 100px;
+      margin: 20px;
+      flex-shrink: 0;
+    }
+
+    .concentric-circles {
+      position: absolute;
+      top: -20px;
+      left: 35px;
+      width: 130px;
+      height: 130px;
+      background: none;
+    }
+
+    .concentric-circles::before {
+      content: "";
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: repeating-radial-gradient(
+        circle,
+        transparent 0,
+        transparent 5px,
+        white 5px,
+        white 6px
+      );
+    }
+
+    .text-content {
+      max-width: 600px;
+      width: 100%;
+      margin: 20px;
+    }
+
+    .text-content h1 {
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1.2;
+      margin: 0 0 20px;
+    }
+
+    .text-content input {
+      padding: 0.5em;
+      margin-bottom: 10px;
+      width: 100%;
+      background-color: white;
+      color: #1a237e;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Noto Serif', serif;
+      font-size: 16px;
+    }
+
+    .text-content button {
+      background-color: #ff5722;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-weight: bold;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: 'Noto Serif', serif;
+    }
+
+    pre {
+      background: #f0f0f0;
+      color: black;
+      padding: 1em;
+      overflow: auto;
+      font-family: 'Noto Serif', serif;
+    }
+
+    #results {
+      margin-top: 1em;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        padding: 20px 10px;
+      }
+
+      .circle-overlay {
+        margin: 10px auto;
+      }
+
+      .text-content {
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="circle-overlay">
+      <div class="concentric-circles"></div>
+    </div>
+    <div class="text-content">
+      <h1>Ask Your<br>E-commerce<br>Data</h1>
+      <input type="text" id="question" placeholder="e.g. What is my total sales?" />
+      <br>
+      <button onclick="askQuestion()">Ask</button>
+      <div id="results">
+        <h3>SQL Query</h3>
+        <pre id="sql"></pre>
+        <h3>Answer</h3>
+        <pre id="answer"></pre>
+        <canvas id="chart" width="400" height="200" style="display:none;"></canvas>
+      </div>
+    </div>
+  </div>
+  <script>
+    async function askQuestion() {
+      const question = document.getElementById('question').value;
+      const res = await fetch('/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      document.getElementById('sql').textContent = data.sql;
+      document.getElementById('answer').textContent = JSON.stringify(data.answer, null, 2);
+      const chartCanvas = document.getElementById('chart');
+      try {
+        if (Array.isArray(data.answer) && data.answer.length > 0 && Array.isArray(data.answer[0])) {
+          const labels = data.answer.map((row, i) => "Row " + (i + 1));
+          const values = data.answer.map(row => parseFloat(row[1]));
+          if (!isNaN(values[0])) {
+            chartCanvas.style.display = 'block';
+            new Chart(chartCanvas, {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'Query Result',
+                  data: values,
+                  backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                  borderColor: 'rgba(75, 192, 192, 1)',
+                  borderWidth: 1
+                }]
+              },
+              options: { scales: { y: { beginAtZero: true } } }
+            });
+          }
+        }
+      } catch (e) {
+        chartCanvas.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
